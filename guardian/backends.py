@@ -7,6 +7,7 @@ from guardian.conf import settings
 from guardian.exceptions import WrongAppError
 from guardian.core import ObjectPermissionChecker
 
+
 class ObjectPermissionBackend(object):
     supports_object_permissions = True
     supports_anonymous_user = True
@@ -15,7 +16,7 @@ class ObjectPermissionBackend(object):
     def authenticate(self, username, password):
         return None
 
-    def has_perm(self, user_obj, perm, obj=None):
+    def has_perm(self, user_obj, perm, obj=None, groups_filter=None):
         """
         Returns ``True`` if given ``user_obj`` has ``perm`` for ``obj``. If no
         ``obj`` is given, ``False`` is returned.
@@ -45,10 +46,12 @@ class ObjectPermissionBackend(object):
         # This is how we support anonymous users - simply try to retrieve User
         # instance and perform checks for that predefined user
         if not user_obj.is_authenticated():
-            # If anonymous user permission is disabled then they are always unauthorized
+            # If anonymous user permission is disabled then they are always
+            # unauthorized
             if settings.ANONYMOUS_USER_ID is None:
                 return False
-            user_obj = get_user_model().objects.get(pk=settings.ANONYMOUS_USER_ID)
+            user_obj = get_user_model().objects.get(
+                pk=settings.ANONYMOUS_USER_ID)
 
         # Do not check any further if user is not active
         if not user_obj.is_active:
@@ -57,9 +60,9 @@ class ObjectPermissionBackend(object):
         if len(perm.split('.')) > 1:
             app_label, perm = perm.split('.')
             if app_label != obj._meta.app_label:
-                raise WrongAppError("Passed perm has app label of '%s' and "
+                raise WrongAppError(
+                    "Passed perm has app label of '%s' and "
                     "given obj has '%s'" % (app_label, obj._meta.app_label))
 
         check = ObjectPermissionChecker(user_obj)
-        return check.has_perm(perm, obj)
-
+        return check.has_perm(perm, obj, groups_filter=groups_filter)

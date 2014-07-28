@@ -37,13 +37,13 @@ class ObjectPermissionChecker(object):
         self.user, self.group = get_identity(user_or_group)
         self._obj_perms_cache = {}
 
-    def has_perm(self, perm, obj):
+    def has_perm(self, perm, obj, groups_filter=None):
         """
         Checks if user/group has given permission for object.
 
         :param perm: permission as string, may or may not contain app_label
           prefix (if not prefixed, we grab app_label from ``obj``)
-        :param obj: Django model instance for which permission should be checked
+        :param obj: Django model instance for which permission should be checkd
 
         """
         perm = perm.split('.')[-1]
@@ -51,13 +51,13 @@ class ObjectPermissionChecker(object):
             return False
         elif self.user and self.user.is_superuser:
             return True
-        return perm in self.get_perms(obj)
+        return perm in self.get_perms(obj, groups_filter=groups_filter)
 
-    def get_perms(self, obj):
+    def get_perms(self, obj, groups_filter=None):
         """
         Returns list of ``codename``'s of all permissions for given ``obj``.
 
-        :param obj: Django model instance for which permission should be checked
+        :param obj: Django model instance for which permission should be checkd
 
         """
         if self.user and not self.user.is_active:
@@ -86,9 +86,11 @@ class ObjectPermissionChecker(object):
                 group_filters['%s__content_object' % group_rel_name] = obj
 
             if self.user and self.user.is_superuser:
-                perms = list(chain(*Permission.objects
-                    .filter(content_type=ctype)
-                    .values_list("codename")))
+                qs = Permission.objects.filter(
+                    content_type=ctype).values_list("codename")
+                if groups_filter:
+                    qs = qs.filter(groups__in=groups_filter)
+                perms = list(chain(*qs))
             elif self.user:
                 model = get_user_obj_perms_model(obj)
                 related_name = model.permission.field.related_query_name()
@@ -106,13 +108,20 @@ class ObjectPermissionChecker(object):
                 user_perms_qs = perms_qs.filter(**user_filters)
                 user_perms = user_perms_qs.values_list("codename", flat=True)
                 group_perms_qs = perms_qs.filter(**group_filters)
+                if groups_filter:
+                    group_perms_qs = group_perms_qs.filter(
+                        groups__in=groups_filter)
                 group_perms = group_perms_qs.values_list("codename", flat=True)
                 perms = list(set(chain(user_perms, group_perms)))
             else:
-                perms = list(set(chain(*Permission.objects
+                qs = (
+                    Permission.objects
                     .filter(content_type=ctype)
                     .filter(**group_filters)
-                    .values_list("codename"))))
+                    .values_list("codename"))
+                if groups_filter:
+                    qs = qs.filter(groups__in=groups_filter)
+                perms = list(set(chain(*qs)))
             self._obj_perms_cache[key] = perms
         return self._obj_perms_cache[key]
 
@@ -122,4 +131,3 @@ class ObjectPermissionChecker(object):
         """
         ctype = ContentType.objects.get_for_model(obj)
         return (ctype.id, obj.pk)
-
