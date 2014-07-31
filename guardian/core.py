@@ -88,8 +88,8 @@ class ObjectPermissionChecker(object):
             if self.user and self.user.is_superuser:
                 qs = Permission.objects.filter(
                     content_type=ctype).values_list("codename")
-                if groups_filter:
-                    qs = qs.filter(groups__in=groups_filter)
+                if groups_filter and obj is None:
+                    qs = qs.filter(group__in=groups_filter)
                 perms = list(chain(*qs))
             elif self.user:
                 model = get_user_obj_perms_model(obj)
@@ -108,9 +108,9 @@ class ObjectPermissionChecker(object):
                 user_perms_qs = perms_qs.filter(**user_filters)
                 user_perms = user_perms_qs.values_list("codename", flat=True)
                 group_perms_qs = perms_qs.filter(**group_filters)
-                if groups_filter:
+                if groups_filter and obj is None:
                     group_perms_qs = group_perms_qs.filter(
-                        groups__in=groups_filter)
+                        group__in=groups_filter)
                 group_perms = group_perms_qs.values_list("codename", flat=True)
                 perms = list(set(chain(user_perms, group_perms)))
             else:
@@ -119,10 +119,11 @@ class ObjectPermissionChecker(object):
                     .filter(content_type=ctype)
                     .filter(**group_filters)
                     .values_list("codename"))
-                if groups_filter:
-                    qs = qs.filter(groups__in=groups_filter)
+                if groups_filter and obj is None:
+                    qs = qs.filter(group__in=groups_filter)
                 perms = list(set(chain(*qs)))
             self._obj_perms_cache[key] = perms
+            print self._obj_perms_cache[key]
         return self._obj_perms_cache[key]
 
     def get_local_cache_key(self, obj):
