@@ -556,3 +556,48 @@ def get_objects_for_group(group, perms, klass=None, any_perm=False):
 
     objects = queryset.filter(pk__in=pk_list)
     return objects
+
+
+def get_objects_for_group_using_content_type(group, codenames, ctype):
+    codenames_set = set()
+
+    if isinstance(codenames, basestring):
+        codenames = [codenames]
+
+    for codename in codenames:
+        codenames_set.add(codename)
+
+    queryset = _get_queryset(ctype.model_class())
+    group_model = get_group_obj_perms_model(queryset.model)
+
+    if isinstance(group, list):
+        groups_obj_perms_queryset = (
+            group_model.objects
+            .filter(group__in=group)
+            .filter(permission__content_type=ctype)
+            .filter(permission__codename__in=codenames_set))
+    else:
+        groups_obj_perms_queryset = (
+            group_model.objects
+            .filter(group=group)
+            .filter(permission__content_type=ctype)
+            .filter(permission__codename__in=codenames_set))
+    if group_model.objects.is_generic():
+        fields = ['object_pk', 'permission__codename']
+    else:
+        fields = ['content_object__pk', 'permission__codename']
+    groups_obj_perms = groups_obj_perms_queryset.values_list(*fields)
+    print groups_obj_perms
+    data = list(groups_obj_perms)
+
+    keyfunc = lambda t: t[0]  # sorting/grouping by pk (first in result tuple)
+    data = sorted(data, key=keyfunc)
+    pk_list = []
+    for pk, group in groupby(data, keyfunc):
+        obj_codenames = set((e[1] for e in group))
+        if codenames_set.issubset(obj_codenames):
+            pk_list.append(pk)
+
+    objects = queryset.filter(pk__in=pk_list)
+    print objects
+    return objects
