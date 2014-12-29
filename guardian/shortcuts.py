@@ -587,7 +587,6 @@ def get_objects_for_group_using_content_type(group, codenames, ctype):
     else:
         fields = ['content_object__pk', 'permission__codename']
     groups_obj_perms = groups_obj_perms_queryset.values_list(*fields)
-    print groups_obj_perms
     data = list(groups_obj_perms)
 
     keyfunc = lambda t: t[0]  # sorting/grouping by pk (first in result tuple)
@@ -599,5 +598,4 @@ def get_objects_for_group_using_content_type(group, codenames, ctype):
             pk_list.append(pk)
 
     objects = queryset.filter(pk__in=pk_list)
-    print objects
     return objects
